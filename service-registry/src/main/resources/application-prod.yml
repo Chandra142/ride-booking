@@ -1,0 +1,21 @@
+# ---------------------------------------------------------------------------
+# Production profile for the Service Registry.
+# NO secrets are defined here on purpose: they MUST be supplied externally.
+# ---------------------------------------------------------------------------
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOSTNAME}
+  server:
+    enable-self-preservation: true
+
+logging:
+  level:
+    root: INFO
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+
+management:
+  endpoint:
+    health:
+      show-details: never

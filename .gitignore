@@ -9,6 +9,7 @@ target/
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
+.mvn/wrapper/maven-wrapper.jar
 
 # Logs
 *.log
@@ -20,7 +21,16 @@ Thumbs.db
 
 # Environment
 .env
-application-local.yml
+.env.*
+!.env.example
+
+# NOTE: application-local.yml files are TRACKED but MUST NOT contain secrets.
+# Local-only secrets belong in an untracked .env or in shell/container env vars.
+
+# Frontend
+ride-booking-system-frontend/node_modules/
+ride-booking-system-frontend/dist/
+ride-booking-system-frontend/dist-ssr/
 
 # Compiled
 *.class

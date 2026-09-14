@@ -1,0 +1,24 @@
+# ---------------------------------------------------------------------------
+# Production profile for the Auth Service.
+# NO secrets are defined here on purpose: they MUST be supplied externally.
+# ---------------------------------------------------------------------------
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL}
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+logging:
+  level:
+    root: INFO
+    com.ridebooking.auth: INFO

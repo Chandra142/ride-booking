@@ -1,5 +1,5 @@
 server:
-  port: 8761
+  port: ${SERVER_PORT:8761}
 
 spring:
   application:
@@ -7,7 +7,7 @@ spring:
 
 eureka:
   instance:
-    hostname: localhost
+    hostname: ${EUREKA_HOSTNAME:localhost}
     prefer-ip-address: true
   client:
     register-with-eureka: false
@@ -15,8 +15,8 @@ eureka:
     service-url:
       defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
   server:
-    # Disable self-preservation for development
-    enable-self-preservation: false
+    # Self-preservation is disabled by default for local development.
+    enable-self-preservation: ${EUREKA_ENABLE_SELF_PRESERVATION:false}
     eviction-interval-timer-in-ms: 30000
 
 management:

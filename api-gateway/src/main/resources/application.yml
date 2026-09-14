@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
@@ -44,6 +44,17 @@ spring:
                 name: driverService
                 fallbackUri: forward:/fallback/driver
 
+        # Ride Service Routes
+        - id: ride-service
+          uri: lb://RIDE-SERVICE
+          predicates:
+            - Path=/api/rides/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: rideService
+                fallbackUri: forward:/fallback/ride
+
         # Payment Service Routes
         - id: payment-service
           uri: lb://PAYMENT-SERVICE
@@ -55,18 +66,30 @@ spring:
                 name: paymentService
                 fallbackUri: forward:/fallback/payment
 
+        # Notification Service Routes
+        - id: notification-service
+          uri: lb://NOTIFICATION-SERVICE
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: notificationService
+                fallbackUri: forward:/fallback/notification
+
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
     fetch-registry: true
     register-with-eureka: true
   instance:
     prefer-ip-address: true
 
-# JWT Configuration - Must match Auth Service
+# JWT Configuration - Must match Auth Service.
+# Production deployments MUST supply JWT_SECRET (see application-prod.yml).
 jwt:
-  secret: your-256-bit-secret-key-for-jwt-token-validation
+  secret: ${JWT_SECRET:dev-only-change-me-this-secret-is-for-local-development-only}
 
 management:
   endpoints:
@@ -79,13 +102,43 @@ management:
 
 logging:
   level:
-    org.springframework.cloud.gateway: DEBUG
-    com.ridebooking.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+    com.ridebooking.gateway: INFO
 
 resilience4j:
   circuitbreaker:
     instances:
       authService:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+      userService:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+      driverService:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+      rideService:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+      paymentService:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+      notificationService:
         slidingWindowSize: 10
         failureRateThreshold: 50
         waitDurationInOpenState: 10000

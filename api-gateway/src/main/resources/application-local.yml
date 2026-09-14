@@ -1,0 +1,9 @@
+# ---------------------------------------------------------------------------
+# Local development profile for the API Gateway.
+# Activate with: SPRING_PROFILES_ACTIVE=local
+# ---------------------------------------------------------------------------
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    com.ridebooking.gateway: DEBUG

@@ -1,0 +1,9 @@
+# ---------------------------------------------------------------------------
+# Local development profile for the Service Registry.
+# Activate with: SPRING_PROFILES_ACTIVE=local
+# ---------------------------------------------------------------------------
+
+logging:
+  level:
+    com.netflix.eureka: DEBUG
+    com.netflix.discovery: DEBUG

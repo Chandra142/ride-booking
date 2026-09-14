@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------------------
+# Production profile for the API Gateway.
+# NO secrets are defined here on purpose: they MUST be supplied externally.
+# ---------------------------------------------------------------------------
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+logging:
+  level:
+    root: INFO
+    com.ridebooking: INFO
+    org.springframework.cloud.gateway: INFO
+
+management:
+  endpoint:
+    health:
+      show-details: never
