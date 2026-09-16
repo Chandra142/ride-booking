@@ -104,8 +104,12 @@ public class AuthService {
                 )
         );
 
-        // Generate JWT after successful authentication
-        String token = jwtService.generateToken(request.getEmail());
+        // Look up user to get ID and role for JWT claims
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found after authentication"));
+
+        // Generate JWT with ID, email, and role claims
+        String token = jwtService.generateToken(user.getEmail(), user.getId(), user.getRole().name());
 
         return AuthResponse.builder()
                 .token(token)

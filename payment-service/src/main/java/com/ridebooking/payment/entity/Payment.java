@@ -34,4 +34,7 @@ public class Payment {
     private String transactionId;
 
     private LocalDateTime paymentTime;
+
+    @Column(unique = true)
+    private String idempotencyKey;
 }

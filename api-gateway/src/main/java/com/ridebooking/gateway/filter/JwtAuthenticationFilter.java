@@ -3,7 +3,6 @@ package com.ridebooking.gateway.filter;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,14 +17,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-@Slf4j
 @Component
 public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
@@ -49,13 +45,11 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
         log.debug("Request path: {}", path);
 
-        // Skip JWT validation for public endpoints
         if (isPublicEndpoint(path)) {
             log.debug("Public endpoint - skipping JWT validation: {}", path);
             return chain.filter(exchange);
         }
 
-        // Extract JWT token
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
             log.warn("Missing or invalid Authorization header for path: {}", path);
@@ -76,19 +70,28 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             String userEmail = claims.get("email", String.class);
             String userRole = claims.get("role", String.class);
 
+            if (userId == null || userEmail == null) {
+                log.warn("JWT missing required claims for path: {}", path);
+                return unauthorizedResponse(exchange, "JWT missing required claims");
+            }
+
             log.debug("JWT validated for user: {}, role: {}", userEmail, userRole);
 
-            // Add user info to headers for downstream services
             ServerHttpRequest modifiedRequest = request.mutate()
+                    .headers(headers -> {
+                        headers.remove("X-User-Id");
+                        headers.remove("X-User-Email");
+                        headers.remove("X-User-Role");
+                    })
                     .header("X-User-Id", userId)
                     .header("X-User-Email", userEmail)
-                    .header("X-User-Role", userRole)
+                    .header("X-User-Role", userRole != null ? userRole : "")
                     .build();
 
             return chain.filter(exchange.mutate().request(modifiedRequest).build());
 
         } catch (Exception e) {
-            log.error("JWT validation failed: {}", e.getMessage());
+            log.error("JWT validation failed for path {}: {}", path, e.getMessage());
             return unauthorizedResponse(exchange, "Invalid or expired JWT token");
         }
     }

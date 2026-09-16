@@ -21,63 +21,47 @@ public class PaymentController {
 
     @PostMapping("/process")
     public ResponseEntity<ApiResponse<PaymentResponseDTO>> processPayment(
+            @RequestHeader("X-User-Id") String userId,
             @Valid @RequestBody PaymentRequestDTO requestDTO) {
 
         PaymentResponseDTO response =
-                paymentService.createPayment(requestDTO);
+                paymentService.createPayment(requestDTO, userId);
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(
-                        "Payment processed successfully",
-                        response
-                ));
+                .body(ApiResponse.success("Payment processed successfully", response));
     }
 
     @PostMapping("/refund/{paymentId}")
     public ResponseEntity<ApiResponse<PaymentResponseDTO>> refundPayment(
-            @PathVariable Long paymentId) {
+            @PathVariable Long paymentId,
+            @RequestHeader("X-User-Id") String userId) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Payment refunded successfully",
-                        paymentService.refundPayment(paymentId)
-                )
-        );
-    }
-
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<PaymentResponseDTO>>> getAllPayments() {
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Payments fetched successfully",
-                        paymentService.getAllPayments()
-                )
-        );
+                        paymentService.refundPayment(paymentId, userId)));
     }
 
     @GetMapping("/{paymentId}")
     public ResponseEntity<ApiResponse<PaymentResponseDTO>> getPaymentById(
-            @PathVariable Long paymentId) {
+            @PathVariable Long paymentId,
+            @RequestHeader("X-User-Id") String userId) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Payment fetched successfully",
-                        paymentService.getPaymentById(paymentId)
-                )
-        );
+                        paymentService.getPaymentById(paymentId, userId)));
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<ApiResponse<List<PaymentResponseDTO>>> getPaymentsByUser(
-            @PathVariable Long userId) {
+            @PathVariable Long userId,
+            @RequestHeader("X-User-Id") String authenticatedUserId) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "User payments fetched successfully",
-                        paymentService.getPaymentsByUser(userId)
-                )
-        );
+                        paymentService.getPaymentsByUser(userId, authenticatedUserId)));
     }
 
     @GetMapping("/ride/{rideId}")
@@ -87,35 +71,6 @@ public class PaymentController {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Ride payments fetched successfully",
-                        paymentService.getPaymentsByRide(rideId)
-                )
-        );
-    }
-
-    @PutMapping("/{paymentId}")
-    public ResponseEntity<ApiResponse<PaymentResponseDTO>> updatePayment(
-            @PathVariable Long paymentId,
-            @Valid @RequestBody PaymentRequestDTO requestDTO) {
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Payment updated successfully",
-                        paymentService.updatePayment(paymentId, requestDTO)
-                )
-        );
-    }
-
-    @DeleteMapping("/{paymentId}")
-    public ResponseEntity<ApiResponse<Void>> deletePayment(
-            @PathVariable Long paymentId) {
-
-        paymentService.deletePayment(paymentId);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        "Payment deleted successfully",
-                        null
-                )
-        );
+                        paymentService.getPaymentsByRide(rideId)));
     }
 }

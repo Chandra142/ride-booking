@@ -4,6 +4,7 @@ import com.ridebooking.user.dto.CreateUserRequest;
 import com.ridebooking.user.dto.UpdateUserRequest;
 import com.ridebooking.user.dto.UserResponse;
 import com.ridebooking.user.entity.User;
+import com.ridebooking.user.exception.ForbiddenException;
 import com.ridebooking.user.repository.UserRepository;
 import com.ridebooking.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -36,17 +37,6 @@ public class UserServiceImpl implements UserService {
         return mapToResponse(user);
     }
 
-    private UserResponse mapToResponse(User user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .phone(user.getPhone())
-                .profileImage(user.getProfileImage())
-                .build();
-    }
-
     @Override
     public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
@@ -63,7 +53,12 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse updateUser(Long id, UpdateUserRequest request) {
+    public UserResponse updateUser(Long id, UpdateUserRequest request, String userId, String userRole) {
+        Long authId = parseUserId(userId);
+        if (!authId.equals(id) && !"ADMIN".equalsIgnoreCase(userRole)) {
+            throw new ForbiddenException("You can only update your own profile");
+        }
+
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
 
@@ -82,10 +77,34 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void deleteUser(Long id) {
+    public void deleteUser(Long id, String userId, String userRole) {
+        Long authId = parseUserId(userId);
+        if (!authId.equals(id) && !"ADMIN".equalsIgnoreCase(userRole)) {
+            throw new ForbiddenException("You can only delete your own profile");
+        }
+
         if (!userRepository.existsById(id)) {
             throw new RuntimeException("User not found with id: " + id);
         }
         userRepository.deleteById(id);
+    }
+
+    private Long parseUserId(String userId) {
+        try {
+            return Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            throw new ForbiddenException("Invalid user identity");
+        }
+    }
+
+    private UserResponse mapToResponse(User user) {
+        return UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .phone(user.getPhone())
+                .profileImage(user.getProfileImage())
+                .build();
     }
 }

@@ -3,6 +3,7 @@ package com.ridebooking.notification.controller;
 import com.ridebooking.notification.common.ApiResponse;
 import com.ridebooking.notification.dto.NotificationRequestDTO;
 import com.ridebooking.notification.dto.NotificationResponseDTO;
+import com.ridebooking.notification.exception.ForbiddenException;
 import com.ridebooking.notification.service.NotificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +22,11 @@ public class NotificationController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<NotificationResponseDTO>> createNotification(
+            @RequestHeader("X-User-Id") String userId,
             @Valid @RequestBody NotificationRequestDTO requestDTO) {
 
         NotificationResponseDTO response =
-                notificationService.createNotification(requestDTO);
+                notificationService.createNotification(requestDTO, userId);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Notification created successfully", response));
@@ -32,48 +34,52 @@ public class NotificationController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<NotificationResponseDTO>> getNotificationById(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") String userId) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Notification fetched successfully",
-                        notificationService.getNotificationById(id)
-                )
-        );
+                        notificationService.getNotificationById(id, userId)));
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<ApiResponse<List<NotificationResponseDTO>>> getNotificationsByUserId(
-            @PathVariable Long userId) {
+            @PathVariable Long userId,
+            @RequestHeader("X-User-Id") String authenticatedUserId) {
+
+        Long authId;
+        try {
+            authId = Long.parseLong(authenticatedUserId);
+        } catch (NumberFormatException e) {
+            throw new ForbiddenException("Invalid user identity");
+        }
+        if (!authId.equals(userId)) {
+            throw new ForbiddenException("You can only view your own notifications");
+        }
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Notifications fetched successfully",
-                        notificationService.getNotificationsByUserId(userId)
-                )
-        );
+                        notificationService.getNotificationsByUserId(userId)));
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<NotificationResponseDTO>>> getAllNotifications() {
-
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Notifications fetched successfully",
-                        notificationService.getAllNotifications()
-                )
-        );
+                        notificationService.getAllNotifications()));
     }
 
     @PutMapping("/{id}/send")
     public ResponseEntity<ApiResponse<NotificationResponseDTO>> sendNotification(
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") String userId) {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
                         "Notification sent successfully",
-                        notificationService.sendNotification(id)
-                )
-        );
+                        notificationService.sendNotification(id, userId)));
     }
 }

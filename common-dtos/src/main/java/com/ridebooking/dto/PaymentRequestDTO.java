@@ -34,4 +34,6 @@ public class PaymentRequestDTO {
 
     @Valid
     private CardDetailsDTO cardDetails;
+
+    private String idempotencyKey;
 }

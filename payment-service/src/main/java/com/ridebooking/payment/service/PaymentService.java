@@ -7,22 +7,15 @@ import java.util.List;
 
 public interface PaymentService {
 
-    PaymentResponseDTO createPayment(PaymentRequestDTO paymentRequestDTO);
+    PaymentResponseDTO createPayment(PaymentRequestDTO paymentRequestDTO, String userId);
 
     List<PaymentResponseDTO> getAllPayments();
 
-    PaymentResponseDTO getPaymentById(Long paymentId);
+    PaymentResponseDTO getPaymentById(Long paymentId, String userId);
 
-    PaymentResponseDTO updatePayment(Long paymentId,
-                                     PaymentRequestDTO paymentRequestDTO);
+    PaymentResponseDTO refundPayment(Long paymentId, String userId);
 
-    void deletePayment(Long paymentId);
-
-    // New Business APIs
-
-    PaymentResponseDTO refundPayment(Long paymentId);
-
-    List<PaymentResponseDTO> getPaymentsByUser(Long userId);
+    List<PaymentResponseDTO> getPaymentsByUser(Long userId, String authenticatedUserId);
 
     List<PaymentResponseDTO> getPaymentsByRide(Long rideId);
 

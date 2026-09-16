@@ -6,6 +6,7 @@ import com.ridebooking.ride.dto.RideRequestDto;
 import com.ridebooking.ride.dto.RideResponseDto;
 import com.ridebooking.ride.entity.Ride;
 import com.ridebooking.ride.entity.RideStatus;
+import com.ridebooking.ride.exception.ForbiddenException;
 import com.ridebooking.ride.exception.NoDriverAvailableException;
 import com.ridebooking.ride.exception.RideNotFoundException;
 import com.ridebooking.ride.exception.InvalidRideStateException;
@@ -32,7 +33,13 @@ public class RideService {
     private static final double BASE_FARE = 30.0;
     private static final double RATE_PER_KM = 12.0;
 
-    public RideResponseDto requestRide(RideRequestDto request) {
+    public RideResponseDto requestRide(RideRequestDto request, String userId) {
+        Long authenticatedUserId = parseUserId(userId);
+
+        if (!authenticatedUserId.equals(request.getRiderId())) {
+            throw new ForbiddenException("You can only request rides for yourself");
+        }
+
         log.info("Ride requested by rider {} from ({}, {})",
                 request.getRiderId(), request.getPickupLatitude(), request.getPickupLongitude());
 
@@ -69,24 +76,27 @@ public class RideService {
         return toDto(ride);
     }
 
-    public RideResponseDto acceptRide(Long rideId) {
+    public RideResponseDto acceptRide(Long rideId, String userId, String userRole) {
         Ride ride = getRideOrThrow(rideId);
+        requireDriverRole(userRole);
         requireStatus(ride, RideStatus.DRIVER_ASSIGNED, "Ride must be DRIVER_ASSIGNED to be accepted");
         ride.setStatus(RideStatus.ACCEPTED);
         ride.setAcceptedAt(LocalDateTime.now());
         return toDto(rideRepository.save(ride));
     }
 
-    public RideResponseDto startRide(Long rideId) {
+    public RideResponseDto startRide(Long rideId, String userId, String userRole) {
         Ride ride = getRideOrThrow(rideId);
+        requireDriverRole(userRole);
         requireStatus(ride, RideStatus.ACCEPTED, "Ride must be ACCEPTED to start");
         ride.setStatus(RideStatus.ONGOING);
         ride.setStartedAt(LocalDateTime.now());
         return toDto(rideRepository.save(ride));
     }
 
-    public RideResponseDto completeRide(Long rideId) {
+    public RideResponseDto completeRide(Long rideId, String userId, String userRole) {
         Ride ride = getRideOrThrow(rideId);
+        requireDriverRole(userRole);
         requireStatus(ride, RideStatus.ONGOING, "Ride must be ONGOING to complete");
 
         double distanceKm = calculateDistanceKm(
@@ -105,8 +115,17 @@ public class RideService {
         return toDto(ride);
     }
 
-    public RideResponseDto cancelRide(Long rideId) {
+    public RideResponseDto cancelRide(Long rideId, String userId, String userRole) {
         Ride ride = getRideOrThrow(rideId);
+        Long authenticatedUserId = parseUserId(userId);
+
+        boolean isRider = authenticatedUserId.equals(ride.getRiderId());
+        boolean isDriver = "DRIVER".equalsIgnoreCase(userRole);
+
+        if (!isRider && !isDriver) {
+            throw new ForbiddenException("Only the rider or assigned driver can cancel a ride");
+        }
+
         if (ride.getStatus() == RideStatus.COMPLETED || ride.getStatus() == RideStatus.CANCELLED) {
             throw new InvalidRideStateException("Cannot cancel a ride that is already " + ride.getStatus());
         }
@@ -118,11 +137,28 @@ public class RideService {
         return toDto(ride);
     }
 
-    public RideResponseDto getRide(Long rideId) {
-        return toDto(getRideOrThrow(rideId));
+    public RideResponseDto getRide(Long rideId, String userId, String userRole) {
+        Ride ride = getRideOrThrow(rideId);
+        Long authenticatedUserId = parseUserId(userId);
+
+        boolean isRider = authenticatedUserId.equals(ride.getRiderId());
+        boolean isDriver = "DRIVER".equalsIgnoreCase(userRole);
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(userRole);
+
+        if (!isRider && !isDriver && !isAdmin) {
+            throw new ForbiddenException("You do not have access to this ride");
+        }
+
+        return toDto(ride);
     }
 
-    public List<RideResponseDto> getRidesByRider(Long riderId) {
+    public List<RideResponseDto> getRidesByRider(Long riderId, String userId) {
+        Long authenticatedUserId = parseUserId(userId);
+
+        if (!authenticatedUserId.equals(riderId)) {
+            throw new ForbiddenException("You can only view your own rides");
+        }
+
         return rideRepository.findByRiderId(riderId).stream().map(this::toDto).toList();
     }
 
@@ -139,6 +175,20 @@ public class RideService {
     private void requireStatus(Ride ride, RideStatus expected, String message) {
         if (ride.getStatus() != expected) {
             throw new InvalidRideStateException(message + " (current status: " + ride.getStatus() + ")");
+        }
+    }
+
+    private void requireDriverRole(String userRole) {
+        if (!"DRIVER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
+            throw new ForbiddenException("Only drivers can perform this action");
+        }
+    }
+
+    private Long parseUserId(String userId) {
+        try {
+            return Long.parseLong(userId);
+        } catch (NumberFormatException e) {
+            throw new ForbiddenException("Invalid user identity");
         }
     }
 

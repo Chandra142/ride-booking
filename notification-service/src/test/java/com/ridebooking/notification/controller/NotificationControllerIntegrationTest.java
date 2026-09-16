@@ -18,7 +18,6 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,6 +47,7 @@ public class NotificationControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/notifications")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestDTO)))
                 .andExpect(status().isCreated())
@@ -63,19 +63,19 @@ public class NotificationControllerIntegrationTest {
     }
 
     @Test
-    void testCreateNotificationValidationError() throws Exception {
-        NotificationRequestDTO invalidRequest = NotificationRequestDTO.builder()
-                .userId(null) // Should cause validation failure
-                .title("") // Blank title
-                .message("Message")
+    void testCreateNotification_shouldReject_whenNotOwnNotification() throws Exception {
+        NotificationRequestDTO requestDTO = NotificationRequestDTO.builder()
+                .userId(2L)
+                .rideId(10L)
+                .title("T")
+                .message("M")
                 .build();
 
         mockMvc.perform(post("/api/v1/notifications")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(invalidRequest)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success", is(false)))
-                .andExpect(jsonPath("$.message", notNullValue()));
+                        .content(objectMapper.writeValueAsString(requestDTO)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -91,7 +91,8 @@ public class NotificationControllerIntegrationTest {
 
         notification = notificationRepository.save(notification);
 
-        mockMvc.perform(get("/api/v1/notifications/" + notification.getNotificationId()))
+        mockMvc.perform(get("/api/v1/notifications/" + notification.getNotificationId())
+                        .header("X-User-Id", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data.notificationId", is(notification.getNotificationId().intValue())))
@@ -100,40 +101,40 @@ public class NotificationControllerIntegrationTest {
     }
 
     @Test
-    void testGetNotificationByIdNotFound() throws Exception {
-        mockMvc.perform(get("/api/v1/notifications/999999"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.success", is(false)))
-                .andExpect(jsonPath("$.message", containsString("Notification not found")));
+    void testGetNotificationById_shouldReject_whenNotOwner() throws Exception {
+        Notification notification = Notification.builder()
+                .userId(2L)
+                .title("Private")
+                .message("M")
+                .status(NotificationStatus.PENDING)
+                .createdAt(LocalDateTime.now())
+                .build();
+        notification = notificationRepository.save(notification);
+
+        mockMvc.perform(get("/api/v1/notifications/" + notification.getNotificationId())
+                        .header("X-User-Id", "999"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
     void testGetNotificationsByUserId() throws Exception {
         Notification n1 = Notification.builder()
-                .userId(3L)
-                .title("T1")
-                .message("M1")
-                .status(NotificationStatus.PENDING)
-                .createdAt(LocalDateTime.now())
+                .userId(3L).title("T1").message("M1")
+                .status(NotificationStatus.PENDING).createdAt(LocalDateTime.now())
                 .build();
         Notification n2 = Notification.builder()
-                .userId(3L)
-                .title("T2")
-                .message("M2")
-                .status(NotificationStatus.SENT)
-                .createdAt(LocalDateTime.now())
+                .userId(3L).title("T2").message("M2")
+                .status(NotificationStatus.SENT).createdAt(LocalDateTime.now())
                 .build();
         Notification n3 = Notification.builder()
-                .userId(4L) // Different user
-                .title("T3")
-                .message("M3")
-                .status(NotificationStatus.PENDING)
-                .createdAt(LocalDateTime.now())
+                .userId(4L).title("T3").message("M3")
+                .status(NotificationStatus.PENDING).createdAt(LocalDateTime.now())
                 .build();
 
         notificationRepository.saveAll(List.of(n1, n2, n3));
 
-        mockMvc.perform(get("/api/v1/notifications/user/3"))
+        mockMvc.perform(get("/api/v1/notifications/user/3")
+                        .header("X-User-Id", "3"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data", hasSize(2)))
@@ -145,18 +146,12 @@ public class NotificationControllerIntegrationTest {
         notificationRepository.deleteAll();
 
         Notification n1 = Notification.builder()
-                .userId(5L)
-                .title("T1")
-                .message("M1")
-                .status(NotificationStatus.PENDING)
-                .createdAt(LocalDateTime.now())
+                .userId(5L).title("T1").message("M1")
+                .status(NotificationStatus.PENDING).createdAt(LocalDateTime.now())
                 .build();
         Notification n2 = Notification.builder()
-                .userId(6L)
-                .title("T2")
-                .message("M2")
-                .status(NotificationStatus.PENDING)
-                .createdAt(LocalDateTime.now())
+                .userId(6L).title("T2").message("M2")
+                .status(NotificationStatus.PENDING).createdAt(LocalDateTime.now())
                 .build();
 
         notificationRepository.saveAll(List.of(n1, n2));
@@ -179,7 +174,8 @@ public class NotificationControllerIntegrationTest {
 
         notification = notificationRepository.save(notification);
 
-        mockMvc.perform(put("/api/v1/notifications/" + notification.getNotificationId() + "/send"))
+        mockMvc.perform(put("/api/v1/notifications/" + notification.getNotificationId() + "/send")
+                        .header("X-User-Id", "7"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.message", containsString("sent successfully")))
@@ -203,7 +199,8 @@ public class NotificationControllerIntegrationTest {
 
         notification = notificationRepository.save(notification);
 
-        mockMvc.perform(put("/api/v1/notifications/" + notification.getNotificationId() + "/send"))
+        mockMvc.perform(put("/api/v1/notifications/" + notification.getNotificationId() + "/send")
+                        .header("X-User-Id", "8"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success", is(false)))
                 .andExpect(jsonPath("$.message", containsString("already been sent")));

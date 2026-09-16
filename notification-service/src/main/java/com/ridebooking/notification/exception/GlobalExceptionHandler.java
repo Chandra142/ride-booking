@@ -19,8 +19,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotificationAlreadySentException.class)
     public ResponseEntity<ApiResponse<Object>> handleAlreadySent(NotificationAlreadySentException ex) {
-
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.failure(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiResponse<Object>> handleForbidden(ForbiddenException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.failure(ex.getMessage()));
     }
 
