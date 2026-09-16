@@ -1,12 +1,4 @@
-import axiosInstance from './axiosConfig';
+import api from './axiosConfig';
 
-export const register = (userData) => 
-  axiosInstance.post('/api/auth/register', userData);
-
-export const login = (credentials) => 
-  axiosInstance.post('/api/auth/login', credentials);
-
-export const logout = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-};
+export const register = (data) => api.post('/api/auth/register', data);
+export const login = (data) => api.post('/api/auth/login', data);

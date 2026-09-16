@@ -1,16 +1,10 @@
-import axiosInstance from './axiosConfig';
+import api from './axiosConfig';
 
-export const createDriver = (data) => 
-  axiosInstance.post('/api/v1/drivers', data);
-
-export const getDriverById = (id) => 
-  axiosInstance.get(`/api/v1/drivers/${id}`);
-
-export const getAllDrivers = () => 
-  axiosInstance.get('/api/v1/drivers');
-
-export const updateDriver = (id, data) => 
-  axiosInstance.put(`/api/v1/drivers/${id}`, data);
-
-export const updateDriverAvailability = (id, status) => 
-  axiosInstance.patch(`/api/v1/drivers/${id}/availability?status=${status}`);
+export const getDriverById = (id) => api.get(`/api/v1/drivers/${id}`);
+export const getAllDrivers = () => api.get('/api/v1/drivers');
+export const createDriver = (data) => api.post('/api/v1/drivers', data);
+export const updateDriver = (id, data) => api.put(`/api/v1/drivers/${id}`, data);
+export const updateAvailability = (id, status) =>
+  api.patch(`/api/v1/drivers/${id}/availability`, null, { params: { status } });
+export const updateDriverLocation = (id, data) =>
+  api.put(`/api/v1/drivers/${id}`, data);

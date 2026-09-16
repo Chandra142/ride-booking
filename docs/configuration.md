@@ -144,3 +144,64 @@ EUREKA_SERVER_URL=http://service-registry:8761/eureka/
 JWT_SECRET=$(openssl rand -base64 48)
 SPRING_PROFILES_ACTIVE=prod
 ```
+
+## Frontend Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_BASE_URL` | `http://localhost:8080` | API Gateway base URL |
+
+Create a `.env.local` file in `ride-booking-system-frontend/` for local overrides:
+
+```env
+VITE_API_BASE_URL=http://localhost:8080
+```
+
+### Frontend Setup
+
+```bash
+cd ride-booking-system-frontend
+npm install
+npm run dev    # development server (port 5173)
+npm run build  # production build
+```
+
+### Authentication Flow
+
+1. User submits login form → POST `/api/auth/login`
+2. Backend returns JWT token
+3. Frontend decodes JWT for `sub` (userId), `email`, `role` claims
+4. Token stored in `localStorage`; Axios attaches `Authorization: Bearer <token>`
+5. On 401 response → token cleared, redirect to `/login`
+6. Role-based routing: `ROLE_USER` → `/app/dashboard`, `ROLE_DRIVER` → `/driver/dashboard`
+
+### API Integration
+
+All API calls go through the centralized Axios instance (`src/api/axiosConfig.js`):
+- Base URL from `VITE_API_BASE_URL`
+- JWT interceptor adds Authorization header
+- 401 response interceptor clears auth and redirects
+
+**API Endpoints Consumed:**
+
+| Endpoint | Method | Used By |
+|---|---|---|
+| `/api/auth/register` | POST | RegisterPage |
+| `/api/auth/login` | POST | LoginPage |
+| `/api/v1/users/{id}` | GET | ProfilePage |
+| `/api/v1/users/{id}` | PUT | ProfilePage |
+| `/api/v1/drivers/{id}` | GET | DriverDashboard, ProfilePage |
+| `/api/v1/drivers/{id}/availability` | PATCH | DriverDashboard |
+| `/api/v1/drivers/{id}` | PUT | DriverDashboard (location) |
+| `/api/rides/request` | POST | RequestRidePage |
+| `/api/rides/{id}` | GET | RideDetail, DriverRideDetail |
+| `/api/rides/rider/{riderId}` | GET | RiderDashboard, RideHistory |
+| `/api/rides/{id}/accept` | POST | DriverRideDetail |
+| `/api/rides/{id}/start` | POST | DriverRideDetail |
+| `/api/rides/{id}/complete` | POST | DriverRideDetail |
+| `/api/rides/{id}/cancel` | POST | RideDetail |
+| `/api/v1/payments/process` | POST | PaymentPage |
+| `/api/v1/payments/user/{userId}` | GET | PaymentPage |
+| `/api/v1/notifications/user/{userId}` | GET | NotificationPage |

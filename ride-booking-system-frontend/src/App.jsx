@@ -1,122 +1,67 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute, PublicRoute } from './components/common/ProtectedRoute';
+import Sidebar from './components/common/Sidebar';
+import LoginPage from './pages/Login';
+import RegisterPage from './pages/Register';
+import RiderDashboard from './pages/RiderDashboard';
+import RequestRidePage from './pages/RequestRide';
+import RideHistoryPage from './pages/RideHistory';
+import RideDetailPage from './pages/RideDetail';
+import PaymentPage from './pages/Payment';
+import NotificationPage from './pages/Notifications';
+import ProfilePage from './pages/Profile';
+import DriverDashboardPage from './pages/DriverDashboard';
+import DriverRidesPage from './pages/DriverRides';
+import DriverRideDetailPage from './pages/DriverRideDetail';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
-
+function RiderLayout({ children }) {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    <ProtectedRoute>
+      <Sidebar />
+      <main className="main-content">{children}</main>
+    </ProtectedRoute>
+  );
 }
 
-export default App
+function DriverLayout({ children }) {
+  return (
+    <ProtectedRoute>
+      <Sidebar />
+      <main className="main-content">{children}</main>
+    </ProtectedRoute>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+          <Route path="/register" element={<PublicRoute><RegisterPage /></PublicRoute>} />
+
+          <Route path="/app" element={<RiderLayout><RiderDashboard /></RiderLayout>} />
+          <Route path="/app/dashboard" element={<RiderLayout><RiderDashboard /></RiderLayout>} />
+          <Route path="/app/request-ride" element={<RiderLayout><RequestRidePage /></RiderLayout>} />
+          <Route path="/app/rides" element={<RiderLayout><RideHistoryPage /></RiderLayout>} />
+          <Route path="/app/rides/:id" element={<RiderLayout><RideDetailPage /></RiderLayout>} />
+          <Route path="/app/payments" element={<RiderLayout><PaymentPage /></RiderLayout>} />
+          <Route path="/app/notifications" element={<RiderLayout><NotificationPage /></RiderLayout>} />
+          <Route path="/app/profile" element={<RiderLayout><ProfilePage /></RiderLayout>} />
+
+          <Route path="/driver" element={<DriverLayout><DriverDashboardPage /></DriverLayout>} />
+          <Route path="/driver/dashboard" element={<DriverLayout><DriverDashboardPage /></DriverLayout>} />
+          <Route path="/driver/rides" element={<DriverLayout><DriverRidesPage /></DriverLayout>} />
+          <Route path="/driver/rides/:id" element={<DriverLayout><DriverRideDetailPage /></DriverLayout>} />
+          <Route path="/driver/notifications" element={<DriverLayout><NotificationPage /></DriverLayout>} />
+          <Route path="/driver/profile" element={<DriverLayout><ProfilePage /></DriverLayout>} />
+
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
