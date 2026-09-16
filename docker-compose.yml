@@ -1,18 +1,19 @@
 # =====================================================================
 # Ride Booking System - local infrastructure
 # ---------------------------------------------------------------------
-# Stage 2: PostgreSQL only. Redis / Kafka are added in later stages.
+# Stage 3: PostgreSQL + Redis. Kafka / WebSockets are added in later stages.
 #
-#   Start:   docker compose up -d postgres
+#   Start:   docker compose up -d postgres redis
 #   Check:   docker compose ps
-#   Logs:    docker compose logs postgres
-#   Stop:    docker compose down        # data persists (named volume)
-#   Wipe:    docker compose down -v     # DESTROYS local database data
+#   Logs:    docker compose logs redis
+#   Stop:    docker compose down        # data persists (named volumes)
+#   Wipe:    docker compose down -v     # DESTROYS local database/redis data
 #
 # Java services run on the host (IDE/Maven) and connect to this
-# container via DB_HOST=localhost:DB_PORT. The exposed host port must
-# match DB_PORT used by the services. The DB is reachable from other
-# Compose services as `postgres:5432` on the ride-booking-network.
+# container via DB_HOST/DB_PORT and REDIS_HOST/REDIS_PORT. The exposed
+# host ports must match the values used by the services.
+# PostgreSQL: DB_HOST=localhost / DB_PORT (DB_PORT defaults to 5432).
+# Redis:      REDIS_HOST=localhost / REDIS_PORT (REDIS_PORT defaults to 6379).
 # =====================================================================
 
 name: ride-booking
@@ -46,9 +47,34 @@ services:
       retries: 5
       start_period: 10s
 
+  redis:
+    image: redis:7-alpine
+    container_name: ride-booking-redis
+    restart: unless-stopped
+
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+    volumes:
+      - redis_data:/data
+
+    networks:
+      - ride-booking-network
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
 volumes:
   postgres_data:
     name: ride-booking-postgres-data
+  redis_data:
+    name: ride-booking-redis-data
 
 networks:
   ride-booking-network:
