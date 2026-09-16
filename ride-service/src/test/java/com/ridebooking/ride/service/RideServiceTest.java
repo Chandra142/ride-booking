@@ -1,11 +1,13 @@
 package com.ridebooking.ride.service;
 
 import com.ridebooking.ride.client.DriverServiceClient;
-import com.ridebooking.ride.dto.DriverDto;
+import com.ridebooking.ride.dto.DriverMatchResult;
 import com.ridebooking.ride.dto.RideRequestDto;
 import com.ridebooking.ride.dto.RideResponseDto;
 import com.ridebooking.ride.entity.Ride;
 import com.ridebooking.ride.entity.RideStatus;
+import com.ridebooking.ride.exception.DriverServiceUnavailableException;
+import com.ridebooking.ride.exception.InvalidRideStateException;
 import com.ridebooking.ride.exception.NoDriverAvailableException;
 import com.ridebooking.ride.repository.RideRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +22,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,77 +37,85 @@ class RideServiceTest {
     @InjectMocks
     private RideService rideService;
 
-    // tests go here, next step
-    @Test
-    void requestRide_shouldAssignNearestDriver() {
-        // ---- Arrange: set up the fake data our mocks will return ----
-        RideRequestDto request = new RideRequestDto();
-        request.setRiderId(1L);
-        request.setPickupLocation("MG Road");
-        request.setDropLocation("Whitefield");
-        request.setPickupLatitude(12.9758);
-        request.setPickupLongitude(77.6045);
-        request.setDropLatitude(12.9698);
-        request.setDropLongitude(77.7500);
+    private RideRequestDto baseRequest;
 
-        DriverDto nearDriver = new DriverDto();
-        nearDriver.setId(101L);
-        nearDriver.setCurrentLatitude(12.9760); // very close to pickup
-        nearDriver.setCurrentLongitude(77.6050);
+    @BeforeEach
+    void setUp() throws Exception {
+        baseRequest = new RideRequestDto();
+        baseRequest.setRiderId(1L);
+        baseRequest.setPickupLocation("MG Road");
+        baseRequest.setDropLocation("Whitefield");
+        baseRequest.setPickupLatitude(12.9758);
+        baseRequest.setPickupLongitude(77.6045);
+        baseRequest.setDropLatitude(12.9698);
+        baseRequest.setDropLongitude(77.7500);
 
-        DriverDto farDriver = new DriverDto();
-        farDriver.setId(202L);
-        farDriver.setCurrentLatitude(13.5000); // far away
-        farDriver.setCurrentLongitude(78.0000);
+        java.lang.reflect.Field field = RideService.class.getDeclaredField("matchingRadiusKm");
+        field.setAccessible(true);
+        field.setDouble(rideService, 10.0);
+    }
 
-        when(driverServiceClient.getAvailableDrivers())
-                .thenReturn(List.of(farDriver, nearDriver));
-
-        // Simulate the repository "saving" a ride by just returning what it was given,
-        // but pretend it now has a generated ID (like a real DB would assign)
+    private void mockSaveReturnId() {
         when(rideRepository.save(any(Ride.class))).thenAnswer(invocation -> {
             Ride ride = invocation.getArgument(0);
             ride.setId(1L);
             return ride;
         });
+    }
 
-        // ---- Act: call the real method we're testing ----
-        RideResponseDto response = rideService.requestRide(request);
+    @Test
+    void requestRide_shouldAssignNearestDriver() {
+        mockSaveReturnId();
 
-        // ---- Assert: verify the outcome is correct ----
-        assertThat(response.getDriverId()).isEqualTo(101L); // the NEAR driver, not the far one
+        when(driverServiceClient.findAndAssignDriver(12.9758, 77.6045, 10.0))
+                .thenReturn(Optional.of(new DriverMatchResult(101L, 0.5)));
+
+        RideResponseDto response = rideService.requestRide(baseRequest);
+
+        assertThat(response.getDriverId()).isEqualTo(101L);
         assertThat(response.getStatus()).isEqualTo(RideStatus.DRIVER_ASSIGNED);
         assertThat(response.getRiderId()).isEqualTo(1L);
     }
+
     @Test
     void requestRide_shouldThrowException_whenNoDriversAvailable() {
-        // ---- Arrange ----
-        RideRequestDto request = new RideRequestDto();
-        request.setRiderId(1L);
-        request.setPickupLocation("MG Road");
-        request.setDropLocation("Whitefield");
-        request.setPickupLatitude(12.9758);
-        request.setPickupLongitude(77.6045);
-        request.setDropLatitude(12.9698);
-        request.setDropLongitude(77.7500);
+        mockSaveReturnId();
 
-        when(driverServiceClient.getAvailableDrivers())
-                .thenReturn(List.of()); // empty list = no drivers
+        when(driverServiceClient.findAndAssignDriver(12.9758, 77.6045, 10.0))
+                .thenReturn(Optional.empty());
 
-        when(rideRepository.save(any(Ride.class))).thenAnswer(invocation -> {
-            Ride ride = invocation.getArgument(0);
-            ride.setId(1L);
-            return ride;
-        });
-
-        // ---- Act + Assert combined ----
-        assertThatThrownBy(() -> rideService.requestRide(request))
+        assertThatThrownBy(() -> rideService.requestRide(baseRequest))
                 .isInstanceOf(NoDriverAvailableException.class)
                 .hasMessage("No drivers currently available");
     }
+
+    @Test
+    void requestRide_shouldThrow_whenDriverServiceUnavailable() {
+        mockSaveReturnId();
+
+        when(driverServiceClient.findAndAssignDriver(anyDouble(), anyDouble(), anyDouble()))
+                .thenThrow(new DriverServiceUnavailableException("Redis connection refused"));
+
+        assertThatThrownBy(() -> rideService.requestRide(baseRequest))
+                .isInstanceOf(DriverServiceUnavailableException.class)
+                .hasMessageContaining("Redis connection refused");
+    }
+
+    @Test
+    void requestRide_shouldFallBackToNextDriver_whenNearestUnavailable() {
+        mockSaveReturnId();
+
+        when(driverServiceClient.findAndAssignDriver(12.9758, 77.6045, 10.0))
+                .thenReturn(Optional.of(new DriverMatchResult(202L, 1.2)));
+
+        RideResponseDto response = rideService.requestRide(baseRequest);
+
+        assertThat(response.getDriverId()).isEqualTo(202L);
+        assertThat(response.getStatus()).isEqualTo(RideStatus.DRIVER_ASSIGNED);
+    }
+
     @Test
     void acceptRide_shouldThrowException_whenRideNotInDriverAssignedState() {
-        // ---- Arrange: a ride that's already ACCEPTED, not DRIVER_ASSIGNED ----
         Ride existingRide = Ride.builder()
                 .id(5L)
                 .riderId(1L)
@@ -114,9 +124,172 @@ class RideServiceTest {
 
         when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
 
-        // ---- Act + Assert ----
         assertThatThrownBy(() -> rideService.acceptRide(5L))
-                .isInstanceOf(com.ridebooking.ride.exception.InvalidRideStateException.class)
+                .isInstanceOf(InvalidRideStateException.class)
                 .hasMessageContaining("Ride must be DRIVER_ASSIGNED to be accepted");
+    }
+
+    @Test
+    void acceptRide_shouldTransitionToAccepted() {
+        Ride existingRide = Ride.builder()
+                .id(5L)
+                .riderId(1L)
+                .driverId(101L)
+                .status(RideStatus.DRIVER_ASSIGNED)
+                .build();
+
+        when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
+        when(rideRepository.save(any(Ride.class))).thenAnswer(i -> i.getArgument(0));
+
+        RideResponseDto response = rideService.acceptRide(5L);
+
+        assertThat(response.getStatus()).isEqualTo(RideStatus.ACCEPTED);
+    }
+
+    @Test
+    void startRide_shouldTransitionToOngoing() {
+        Ride existingRide = Ride.builder()
+                .id(5L)
+                .riderId(1L)
+                .driverId(101L)
+                .status(RideStatus.ACCEPTED)
+                .build();
+
+        when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
+        when(rideRepository.save(any(Ride.class))).thenAnswer(i -> i.getArgument(0));
+
+        RideResponseDto response = rideService.startRide(5L);
+
+        assertThat(response.getStatus()).isEqualTo(RideStatus.ONGOING);
+    }
+
+    @Test
+    void startRide_shouldThrow_whenNotAccepted() {
+        Ride existingRide = Ride.builder()
+                .id(5L)
+                .riderId(1L)
+                .driverId(101L)
+                .status(RideStatus.DRIVER_ASSIGNED)
+                .build();
+
+        when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
+
+        assertThatThrownBy(() -> rideService.startRide(5L))
+                .isInstanceOf(InvalidRideStateException.class)
+                .hasMessageContaining("Ride must be ACCEPTED to start");
+    }
+
+    @Test
+    void completeRide_shouldTransitionToCompleted_andReleaseDriver() {
+        Ride existingRide = Ride.builder()
+                .id(5L)
+                .riderId(1L)
+                .driverId(101L)
+                .pickupLatitude(12.9758)
+                .pickupLongitude(77.6045)
+                .dropLatitude(12.9698)
+                .dropLongitude(77.7500)
+                .status(RideStatus.ONGOING)
+                .build();
+
+        when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
+        when(rideRepository.save(any(Ride.class))).thenAnswer(i -> i.getArgument(0));
+
+        RideResponseDto response = rideService.completeRide(5L);
+
+        assertThat(response.getStatus()).isEqualTo(RideStatus.COMPLETED);
+        assertThat(response.getFare()).isNotNull();
+        verify(driverServiceClient).releaseDriver(101L);
+    }
+
+    @Test
+    void completeRide_shouldThrow_whenNotOngoing() {
+        Ride existingRide = Ride.builder()
+                .id(5L)
+                .riderId(1L)
+                .driverId(101L)
+                .status(RideStatus.ACCEPTED)
+                .build();
+
+        when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
+
+        assertThatThrownBy(() -> rideService.completeRide(5L))
+                .isInstanceOf(InvalidRideStateException.class)
+                .hasMessageContaining("Ride must be ONGOING to complete");
+    }
+
+    @Test
+    void cancelRide_shouldTransitionToCancelled_andReleaseDriver() {
+        Ride existingRide = Ride.builder()
+                .id(5L)
+                .riderId(1L)
+                .driverId(101L)
+                .status(RideStatus.DRIVER_ASSIGNED)
+                .build();
+
+        when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
+        when(rideRepository.save(any(Ride.class))).thenAnswer(i -> i.getArgument(0));
+
+        RideResponseDto response = rideService.cancelRide(5L);
+
+        assertThat(response.getStatus()).isEqualTo(RideStatus.CANCELLED);
+        verify(driverServiceClient).releaseDriver(101L);
+    }
+
+    @Test
+    void cancelRide_shouldThrow_whenAlreadyCompleted() {
+        Ride existingRide = Ride.builder()
+                .id(5L)
+                .riderId(1L)
+                .driverId(101L)
+                .status(RideStatus.COMPLETED)
+                .build();
+
+        when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
+
+        assertThatThrownBy(() -> rideService.cancelRide(5L))
+                .isInstanceOf(InvalidRideStateException.class)
+                .hasMessageContaining("Cannot cancel a ride that is already COMPLETED");
+    }
+
+    @Test
+    void cancelRide_shouldThrow_whenAlreadyCancelled() {
+        Ride existingRide = Ride.builder()
+                .id(5L)
+                .riderId(1L)
+                .status(RideStatus.CANCELLED)
+                .build();
+
+        when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
+
+        assertThatThrownBy(() -> rideService.cancelRide(5L))
+                .isInstanceOf(InvalidRideStateException.class)
+                .hasMessageContaining("Cannot cancel a ride that is already CANCELLED");
+    }
+
+    @Test
+    void cancelRide_shouldNotRelease_whenNoDriverAssigned() {
+        Ride existingRide = Ride.builder()
+                .id(5L)
+                .riderId(1L)
+                .status(RideStatus.REQUESTED)
+                .build();
+
+        when(rideRepository.findById(5L)).thenReturn(Optional.of(existingRide));
+        when(rideRepository.save(any(Ride.class))).thenAnswer(i -> i.getArgument(0));
+
+        RideResponseDto response = rideService.cancelRide(5L);
+
+        assertThat(response.getStatus()).isEqualTo(RideStatus.CANCELLED);
+        verify(driverServiceClient, never()).releaseDriver(anyLong());
+    }
+
+    @Test
+    void requestRide_shouldThrow_whenRideNotFound() {
+        when(rideRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> rideService.getRide(999L))
+                .isInstanceOf(com.ridebooking.ride.exception.RideNotFoundException.class);
     }
 }

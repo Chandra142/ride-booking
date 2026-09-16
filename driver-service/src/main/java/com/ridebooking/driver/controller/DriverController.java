@@ -51,4 +51,9 @@ public class DriverController {
             @RequestParam AvailabilityStatus status) {
         return driverService.updateAvailability(id, status);
     }
+
+    @PostMapping("/{id}/release")
+    public DriverResponse releaseDriver(@PathVariable Long id) {
+        return driverService.releaseDriver(id);
+    }
 }

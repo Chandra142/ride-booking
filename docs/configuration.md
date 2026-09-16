@@ -51,6 +51,20 @@ Every service reads configuration from environment variables at startup. Default
 | `JWT_SECRET` | `dev-only-change-me-...` (see `.env.example`) | **yes** | HMAC secret, ≥ 32 bytes for HS256 |
 | `JWT_EXPIRATION` | `86400000` (24h) | recommended | Token lifetime in milliseconds |
 
+### Ride Matching
+
+| Variable | Default | Service | Description |
+|---|---|---|---|
+| `DRIVER_MATCHING_RADIUS_KM` | `10.0` | ride-service | Search radius for nearby drivers (km) |
+
+### Driver Location (Redis)
+
+| Variable | Default | Service | Description |
+|---|---|---|---|
+| `DRIVER_LOCATION_TTL_SECONDS` | `300` | driver-service | Per-driver location freshness TTL |
+| `DRIVER_LOCATION_DEFAULT_RADIUS_KM` | `5.0` | driver-service | Default nearby search radius |
+| `DRIVER_LOCATION_MAX_RADIUS_KM` | `50.0` | driver-service | Maximum allowed search radius |
+
 ### Ports
 
 | Variable | Default | Service |

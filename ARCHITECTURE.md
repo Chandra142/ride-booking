@@ -76,13 +76,11 @@ Each service owns its own PostgreSQL database. Auth and User currently share `ri
 
 All services are configured via environment variables. See [docs/configuration.md](docs/configuration.md) and `.env.example`.
 
-## Current Limitations (Stage 2)
+## Current Limitations (Stage 4)
 
 - Kafka not implemented (planned for Stage 11)
-- Redis not implemented (planned for Stage 9)
-- Driver matching is basic (selects first ONLINE driver; advanced matching in Stage 10)
 - Event-driven payment/notification integration incomplete (Stage 12–13)
-- Java services run on the host; only PostgreSQL is containerized
+- Java services run on the host; only PostgreSQL/Redis are containerized
   (via `docker-compose.yml` — see [docs/infrastructure.md](docs/infrastructure.md))
 - No CI/CD pipelines (Stage 20)
 

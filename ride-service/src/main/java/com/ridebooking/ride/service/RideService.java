@@ -1,32 +1,41 @@
 package com.ridebooking.ride.service;
 
 import com.ridebooking.ride.client.DriverServiceClient;
-import com.ridebooking.ride.dto.DriverDto;
+import com.ridebooking.ride.dto.DriverMatchResult;
 import com.ridebooking.ride.dto.RideRequestDto;
 import com.ridebooking.ride.dto.RideResponseDto;
 import com.ridebooking.ride.entity.Ride;
 import com.ridebooking.ride.entity.RideStatus;
 import com.ridebooking.ride.exception.NoDriverAvailableException;
-import com.ridebooking.ride.repository.RideRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 import com.ridebooking.ride.exception.RideNotFoundException;
 import com.ridebooking.ride.exception.InvalidRideStateException;
+import com.ridebooking.ride.repository.RideRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RideService {
 
     private final RideRepository rideRepository;
     private final DriverServiceClient driverServiceClient;
+
+    @Value("${ride.matching.radius-km:10.0}")
+    private double matchingRadiusKm;
+
     private static final double BASE_FARE = 30.0;
     private static final double RATE_PER_KM = 12.0;
 
     public RideResponseDto requestRide(RideRequestDto request) {
+        log.info("Ride requested by rider {} from ({}, {})",
+                request.getRiderId(), request.getPickupLatitude(), request.getPickupLongitude());
+
         Ride ride = Ride.builder()
                 .riderId(request.getRiderId())
                 .pickupLocation(request.getPickupLocation())
@@ -41,18 +50,21 @@ public class RideService {
 
         ride = rideRepository.save(ride);
 
-        List<DriverDto> availableDrivers = driverServiceClient.getAvailableDrivers();
-        
-        if (availableDrivers.isEmpty()) {
+        DriverMatchResult match = driverServiceClient.findAndAssignDriver(
+                request.getPickupLatitude(), request.getPickupLongitude(), matchingRadiusKm)
+                .orElse(null);
+
+        if (match == null) {
+            log.info("No driver available for ride {}", ride.getId());
             throw new NoDriverAvailableException();
         }
 
-        // Use the first available driver (simplified matching)
-        DriverDto selectedDriver = availableDrivers.get(0);
-
-        ride.setDriverId(selectedDriver.getId());
+        ride.setDriverId(match.getDriverId());
         ride.setStatus(RideStatus.DRIVER_ASSIGNED);
         ride = rideRepository.save(ride);
+
+        log.info("Ride {} assigned to driver {} (distance: {} km)",
+                ride.getId(), match.getDriverId(), match.getDistanceKm());
 
         return toDto(ride);
     }
@@ -86,7 +98,11 @@ public class RideService {
         ride.setFare(Math.round(fare * 100.0) / 100.0);
         ride.setStatus(RideStatus.COMPLETED);
         ride.setCompletedAt(LocalDateTime.now());
-        return toDto(rideRepository.save(ride));
+        ride = rideRepository.save(ride);
+
+        releaseDriverIfAssigned(ride);
+
+        return toDto(ride);
     }
 
     public RideResponseDto cancelRide(Long rideId) {
@@ -95,7 +111,11 @@ public class RideService {
             throw new InvalidRideStateException("Cannot cancel a ride that is already " + ride.getStatus());
         }
         ride.setStatus(RideStatus.CANCELLED);
-        return toDto(rideRepository.save(ride));
+        ride = rideRepository.save(ride);
+
+        releaseDriverIfAssigned(ride);
+
+        return toDto(ride);
     }
 
     public RideResponseDto getRide(Long rideId) {
@@ -104,6 +124,12 @@ public class RideService {
 
     public List<RideResponseDto> getRidesByRider(Long riderId) {
         return rideRepository.findByRiderId(riderId).stream().map(this::toDto).toList();
+    }
+
+    private void releaseDriverIfAssigned(Ride ride) {
+        if (ride.getDriverId() != null) {
+            driverServiceClient.releaseDriver(ride.getDriverId());
+        }
     }
 
     private Ride getRideOrThrow(Long id) {

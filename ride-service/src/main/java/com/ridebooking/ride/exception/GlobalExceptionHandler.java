@@ -23,4 +23,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleInvalidState(InvalidRideStateException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
     }
+
+    @ExceptionHandler(DriverServiceUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handleDriverServiceUnavailable(
+            DriverServiceUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("error", ex.getMessage()));
+    }
 }

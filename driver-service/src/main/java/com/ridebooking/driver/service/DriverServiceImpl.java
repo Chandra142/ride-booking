@@ -150,6 +150,22 @@ public class DriverServiceImpl implements DriverService {
         return mapToResponse(updatedDriver);
     }
 
+    @Override
+    public DriverResponse releaseDriver(Long id) {
+
+        Driver driver = driverRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Driver not found"));
+
+        if (driver.getAvailabilityStatus() == AvailabilityStatus.ONLINE) {
+            return mapToResponse(driver);
+        }
+
+        driver.setAvailabilityStatus(AvailabilityStatus.ONLINE);
+        Driver updatedDriver = driverRepository.save(driver);
+
+        return mapToResponse(updatedDriver);
+    }
+
     private DriverResponse mapToResponse(Driver driver) {
 
         return DriverResponse.builder()

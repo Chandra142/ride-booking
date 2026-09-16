@@ -20,4 +20,6 @@ public interface DriverService {
     void deleteDriver(Long id);
 
     DriverResponse updateAvailability(Long id, AvailabilityStatus status);
+
+    DriverResponse releaseDriver(Long id);
 }
