@@ -17,6 +17,9 @@ spring:
       hibernate:
         format_sql: true
 
+  flyway:
+    enabled: false
+
 eureka:
   client:
     enabled: false

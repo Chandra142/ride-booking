@@ -10,9 +10,9 @@ Every service reads configuration from environment variables at startup. Default
 
 | Profile | When active | Behavior |
 |---|---|---|
-| (none) | default | Safe local defaults, env-var substitution |
+| (none) | default | Safe local defaults, env-var substitution, `ddl-auto=validate`, Flyway enabled |
 | `local` | `SPRING_PROFILES_ACTIVE=local` | `show-sql=true`, DEBUG logging for service packages + Hibernate SQL |
-| `prod` | `SPRING_PROFILES_ACTIVE=prod` | `ddl-auto=validate`, `show-sql=false`, INFO logging, secrets required |
+| `prod` | `SPRING_PROFILES_ACTIVE=prod` | `ddl-auto=validate`, `show-sql=false`, INFO logging, secrets required, Flyway clean disabled |
 
 ## Environment Variables
 
@@ -112,6 +112,51 @@ Every service reads configuration from environment variables at startup. Default
 - The `prod` profile uses `spring.jpa.hibernate.ddl-auto=validate` and prints no SQL.
 - The gateway should use the same `JWT_SECRET` as the Auth Service.
 - `.env` files are git-ignored; only `.env.example` is committed with placeholders.
+
+## Database Migrations (Flyway)
+
+All database-owning services use **Flyway** for schema management. Hibernate `ddl-auto` is set to `validate` (never `update` in production).
+
+### Flyway Configuration
+
+| Property | Value | Description |
+|---|---|---|
+| `spring.flyway.enabled` | `true` | Flyway runs on every startup |
+| `spring.flyway.locations` | `classpath:db/migration` | Migration SQL files |
+| `spring.flyway.baseline-on-migrate` | `true` | Baselines existing databases on first Flyway run |
+| `spring.flyway.baseline-version` | `0` | Baseline version for existing schemas |
+| `spring.flyway.validate-on-migrate` | `true` | Validates checksums before applying |
+| `spring.flyway.clean-disabled` | `true` | Prevents destructive `flyway clean` |
+
+### Migration Locations
+
+| Service | Migration Path |
+|---|---|
+| auth-service | `auth-service/src/main/resources/db/migration/` |
+| user-service | `user-service/src/main/resources/db/migration/` |
+| driver-service | `driver-service/src/main/resources/db/migration/` |
+| ride-service | `ride-service/src/main/resources/db/migration/` |
+| payment-service | `payment-service/src/main/resources/db/migration/` |
+| notification-service | `notification-service/src/main/resources/db/migration/` |
+
+### Adding New Migrations
+
+1. Create a new SQL file: `V{N}__{description}.sql` (e.g., `V2__add_driver_documents.sql`)
+2. Place it in the service's `src/main/resources/db/migration/` directory
+3. The migration runs automatically on next startup
+4. **Never edit** an already-applied migration — create a new version instead
+
+### Shared Database (auth + user)
+
+auth-service and user-service share the `ride_booking` database. Their V1 migrations are **byte-for-byte identical** to avoid Flyway checksum conflicts. Whichever service runs first applies the migration; the other detects "schema up to date".
+
+### Existing Databases
+
+For databases that already have tables (created by Hibernate `ddl-auto:update`):
+- `baseline-on-migrate: true` + `baseline-version: 0` baselines existing tables
+- Flyway creates `flyway_schema_history` and marks version 0 as baseline
+- Subsequent migrations apply normally
+- No data is lost; no tables are dropped
 
 ## Running Locally
 
