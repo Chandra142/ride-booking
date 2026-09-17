@@ -7,3 +7,11 @@ logging:
   level:
     org.springframework.cloud.gateway: DEBUG
     com.ridebooking.gateway: DEBUG
+
+# Local rate limiting (relaxed defaults)
+spring.cloud.gateway.default-filters:
+  - name: RequestRateLimiter
+    args:
+      redis-rate-limiter.replenishRate: 50
+      redis-rate-limiter.burstCapacity: 100
+      redis-rate-limiter.requestedTokens: 1

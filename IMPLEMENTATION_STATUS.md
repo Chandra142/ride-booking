@@ -1,6 +1,6 @@
 # IMPLEMENTATION STATUS
 
-## Current Stage: 6 — Production-Quality Frontend & API Integration
+## Current Stage: 7 — API Gateway Hardening
 
 - **Stage 0 (Audit): COMPLETE** — full repository audit; findings recorded in `docs/AUDIT_REPORT.md`.
 - **Stage 1 (Backend Foundation & Configuration): COMPLETE** — env-based config, profiles, gateway routes, docs.
@@ -8,18 +8,19 @@
 - **Stage 3 (Redis Geospatial Driver Location): COMPLETE** — Redis GEO index, per-driver freshness markers, location CRUD API.
 - **Stage 4 (Location-Aware Driver Matching): COMPLETE** — geospatial matching with Redis GEO, atomic CAS assignment, driver release.
 - **Stage 5 (Security, Payment Safety & Notification Hardening): COMPLETE** — JWT contract fix, ownership checks, payment idempotency/state machine, notification sender abstraction.
-- **Stage 6 (Production-Quality Frontend & API Integration): COMPLETE** — this report.
+- **Stage 6 (Production-Quality Frontend & API Integration): COMPLETE** — React/Vite frontend with JWT auth.
+- **Stage 7 (API Gateway Hardening): COMPLETE** — CORS, rate limiting, correlation IDs, security headers, resilience.
 
 ### Build Status (verified 2026-09-17)
 
-Backend: `mvn clean test` over the full reactor: **BUILD SUCCESS** — 65 tests, 0 failures.
+Backend: `mvn clean test` over the full reactor: **BUILD SUCCESS** — 85 tests, 0 failures.
 Frontend: `npm run lint` + `npm run build`: **PASS** — 0 lint errors, production build succeeds.
 
 | Service | Compile | Unit Tests | Notes |
 |---------|---------|------------|-------|
 | common-dtos | ✅ PASS | N/A (library) | |
 | service-registry | ✅ PASS | N/A (no tests) | |
-| api-gateway | ✅ PASS | N/A (no tests) | |
+| api-gateway | ✅ PASS | 13/13 pass | 1 context + 1 CORS + 11 filter tests |
 | auth-service | ✅ PASS | 1/1 pass | contextLoads |
 | user-service | ✅ PASS | 1/1 pass | contextLoads |
 | driver-service | ✅ PASS | 11/11 pass | 2 context + 9 matching tests |
@@ -88,6 +89,44 @@ Frontend: `npm run lint` + `npm run build`: **PASS** — 0 lint errors, producti
 - Loading spinners, error states, empty states
 - Status badges with color coding
 - Card-based layout with proper spacing
+
+### Stage 7 Implementation Summary
+
+**Gateway Filters (new):**
+- `CorrelationIdFilter` (order=-2): generates/propagates `X-Correlation-ID`; validates format (alphanumeric + hyphens + underscores), max 128 chars
+- `SecurityHeadersFilter` (order=-3): X-Content-Type-Options, X-Frame-Options, Referrer-Policy, X-XSS-Protection, Cache-Control, Pragma
+- `CorsConfig`: environment-aware CORS via `GATEWAY_CORS_ALLOWED_ORIGINS` etc.
+- `RateLimitConfig`: `KeyResolver` bean using X-User-Id → IP fallback strategy
+
+**Rate Limiting:**
+- Redis-backed `RequestRateLimiter` as a default filter on all routes
+- Configurable per-environment: `RATE_LIMIT_REPLENISH_RATE`, `RATE_LIMIT_BURST_CAPACITY`
+- Local defaults: 50/100 requests; prod defaults: 20/40 requests
+
+**Resilience:**
+- Resilience4j CircuitBreaker per route (auth, user, driver, ride, payment, notification)
+- TimeLimiter per route (5s for simple services, 10s for ride/payment)
+- Fallback endpoints per service for circuit-breaker open state
+
+**Configuration (new env vars):**
+
+| Variable | Default (local) | Required in prod | Description |
+|---|---|---|---|
+| `REDIS_HOST` | `localhost` | yes | Redis host for rate limiting |
+| `REDIS_PORT` | `6379` | yes | Redis port |
+| `RATE_LIMIT_REPLENISH_RATE` | `50` (local) / `20` (prod) | recommended | Requests per second replenishment |
+| `RATE_LIMIT_BURST_CAPACITY` | `100` (local) / `40` (prod) | recommended | Maximum burst capacity |
+| `RATE_LIMIT_REQUESTED_TOKENS` | `1` | recommended | Tokens per request |
+| `GATEWAY_CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | yes | Comma-separated allowed origins |
+| `GATEWAY_CORS_ALLOWED_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | recommended | Allowed HTTP methods |
+| `GATEWAY_CORS_ALLOWED_HEADERS` | `*` | recommended | Allowed headers |
+| `GATEWAY_CORS_ALLOW_CREDENTIALS` | `true` | recommended | Allow credentials |
+| `GATEWAY_CORS_MAX_AGE` | `3600` | recommended | CORS preflight cache (seconds) |
+
+**Tests Added (api-gateway):**
+- `GatewayIntegrationTest`: 11 unit tests for CorrelationIdFilter, SecurityHeadersFilter, JwtAuthenticationFilter
+- `CorsConfigTest`: 1 test verifying CorsWebFilter bean creation
+- `ApiGatewayApplicationTests`: context load test
 
 **Known Limitations:**
 1. Driver rides page uses a simplified approach (no dedicated "rides by driver" endpoint exists)

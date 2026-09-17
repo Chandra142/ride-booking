@@ -51,6 +51,26 @@ Every service reads configuration from environment variables at startup. Default
 | `JWT_SECRET` | `dev-only-change-me-...` (see `.env.example`) | **yes** | HMAC secret, ≥ 32 bytes for HS256 |
 | `JWT_EXPIRATION` | `86400000` (24h) | recommended | Token lifetime in milliseconds |
 
+### Gateway — CORS
+
+| Variable | Default | Required in prod | Description |
+|---|---|---|---|
+| `GATEWAY_CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | yes | Comma-separated allowed origins |
+| `GATEWAY_CORS_ALLOWED_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | recommended | Allowed HTTP methods |
+| `GATEWAY_CORS_ALLOWED_HEADERS` | `*` | recommended | Allowed request headers |
+| `GATEWAY_CORS_ALLOW_CREDENTIALS` | `true` | recommended | Allow credentials |
+| `GATEWAY_CORS_MAX_AGE` | `3600` | recommended | Preflight cache duration (seconds) |
+
+### Gateway — Rate Limiting (Redis)
+
+| Variable | Default (local) | Required in prod | Description |
+|---|---|---|---|
+| `REDIS_HOST` | `localhost` | yes | Redis host for rate limiter |
+| `REDIS_PORT` | `6379` | yes | Redis port |
+| `RATE_LIMIT_REPLENISH_RATE` | `50` | recommended | Tokens replenished per second |
+| `RATE_LIMIT_BURST_CAPACITY` | `100` | recommended | Maximum token bucket capacity |
+| `RATE_LIMIT_REQUESTED_TOKENS` | `1` | recommended | Tokens consumed per request |
+
 ### Ride Matching
 
 | Variable | Default | Service | Description |
