@@ -27,20 +27,31 @@ public class DriverLocationController {
     private final DriverService driverService;
     private final DriverLocationService locationService;
 
-    @PutMapping("/{driverId}")
+    @PutMapping("/{driverId}/location")
     public ResponseEntity<DriverLocationResponse> updateLocation(
             @PathVariable Long driverId,
-            @RequestHeader(value = "X-User-Id", required = false) String identity,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @Valid @RequestBody UpdateDriverLocationRequest request) {
 
-        if (identity == null || identity.isBlank()) {
-            throw new MissingIdentityException("X-User-Id is required");
+        if (userId == null || userId.isBlank()) {
+            throw new MissingIdentityException("X-User-Id header is required");
         }
 
-        DriverResponse owner = driverService.getDriverById(driverId);
-        if (!identity.equalsIgnoreCase(owner.getEmail())) {
-            throw new OwnershipViolationException(
-                    "Driver " + driverId + " is not owned by " + identity);
+        if (!"DRIVER".equalsIgnoreCase(userRole) && !"ADMIN".equalsIgnoreCase(userRole)) {
+            throw new OwnershipViolationException("Only drivers can update location");
+        }
+
+        if (!"ADMIN".equalsIgnoreCase(userRole)) {
+            try {
+                Long authId = Long.parseLong(userId);
+                if (!authId.equals(driverId)) {
+                    throw new OwnershipViolationException(
+                            "Driver " + driverId + " location cannot be updated by user " + userId);
+                }
+            } catch (NumberFormatException e) {
+                throw new MissingIdentityException("Invalid user identity");
+            }
         }
 
         CoordinateValidator.validate(

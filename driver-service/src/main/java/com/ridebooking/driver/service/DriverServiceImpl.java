@@ -6,9 +6,10 @@ import com.ridebooking.driver.dto.UpdateDriverRequest;
 import com.ridebooking.driver.entity.AvailabilityStatus;
 import com.ridebooking.driver.entity.Driver;
 import com.ridebooking.driver.entity.Vehicle;
+import com.ridebooking.driver.exception.InvalidStateException;
+import com.ridebooking.driver.exception.ResourceNotFoundException;
 import com.ridebooking.driver.repository.DriverRepository;
 import com.ridebooking.driver.repository.VehicleRepository;
-import com.ridebooking.driver.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -68,7 +69,7 @@ public class DriverServiceImpl implements DriverService {
     public DriverResponse getDriverById(Long id) {
 
         Driver driver = driverRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Driver not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Driver not found with id: " + id));
 
         return mapToResponse(driver);
     }
@@ -86,7 +87,7 @@ public class DriverServiceImpl implements DriverService {
     public DriverResponse updateDriver(Long id, UpdateDriverRequest request) {
 
         Driver driver = driverRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Driver not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Driver not found with id: " + id));
 
         if (request.getFirstName() != null)
             driver.setFirstName(request.getFirstName());
@@ -102,9 +103,6 @@ public class DriverServiceImpl implements DriverService {
 
         if (request.getLicenseNumber() != null)
             driver.setLicenseNumber(request.getLicenseNumber());
-
-        if (request.getAvailabilityStatus() != null)
-            driver.setAvailabilityStatus(request.getAvailabilityStatus());
 
         Vehicle vehicle = driver.getVehicle();
 
@@ -132,7 +130,7 @@ public class DriverServiceImpl implements DriverService {
     public void deleteDriver(Long id) {
 
         Driver driver = driverRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Driver not found"));;
+                .orElseThrow(() -> new ResourceNotFoundException("Driver not found with id: " + id));
 
         driverRepository.delete(driver);
     }
@@ -141,7 +139,14 @@ public class DriverServiceImpl implements DriverService {
     public DriverResponse updateAvailability(Long id, AvailabilityStatus status) {
 
         Driver driver = driverRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Driver not found"));;
+                .orElseThrow(() -> new ResourceNotFoundException("Driver not found with id: " + id));
+
+        AvailabilityStatus currentStatus = driver.getAvailabilityStatus();
+
+        if (!isValidTransition(currentStatus, status)) {
+            throw new InvalidStateException(
+                    "Cannot transition from " + currentStatus + " to " + status);
+        }
 
         driver.setAvailabilityStatus(status);
 
@@ -154,7 +159,7 @@ public class DriverServiceImpl implements DriverService {
     public DriverResponse releaseDriver(Long id) {
 
         Driver driver = driverRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Driver not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Driver not found with id: " + id));
 
         if (driver.getAvailabilityStatus() == AvailabilityStatus.ONLINE) {
             return mapToResponse(driver);
@@ -164,6 +169,17 @@ public class DriverServiceImpl implements DriverService {
         Driver updatedDriver = driverRepository.save(driver);
 
         return mapToResponse(updatedDriver);
+    }
+
+    private boolean isValidTransition(AvailabilityStatus from, AvailabilityStatus to) {
+        if (from == to) {
+            return true;
+        }
+        return switch (from) {
+            case OFFLINE -> to == AvailabilityStatus.ONLINE;
+            case ONLINE -> to == AvailabilityStatus.OFFLINE;
+            case BUSY -> false;
+        };
     }
 
     private DriverResponse mapToResponse(Driver driver) {

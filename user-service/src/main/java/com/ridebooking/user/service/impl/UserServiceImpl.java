@@ -5,6 +5,7 @@ import com.ridebooking.user.dto.UpdateUserRequest;
 import com.ridebooking.user.dto.UserResponse;
 import com.ridebooking.user.entity.User;
 import com.ridebooking.user.exception.ForbiddenException;
+import com.ridebooking.user.exception.ResourceNotFoundException;
 import com.ridebooking.user.repository.UserRepository;
 import com.ridebooking.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse createUser(CreateUserRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new IllegalArgumentException("Email already exists");
         }
 
         User user = User.builder()
@@ -40,7 +41,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         return mapToResponse(user);
     }
 
@@ -60,7 +61,7 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
 
         if (request.getFullName() != null) {
             user.setFullName(request.getFullName());
@@ -84,7 +85,7 @@ public class UserServiceImpl implements UserService {
         }
 
         if (!userRepository.existsById(id)) {
-            throw new RuntimeException("User not found with id: " + id);
+            throw new ResourceNotFoundException("User not found with id: " + id);
         }
         userRepository.deleteById(id);
     }

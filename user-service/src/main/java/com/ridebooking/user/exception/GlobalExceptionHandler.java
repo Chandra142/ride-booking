@@ -1,4 +1,4 @@
-package com.ridebooking.driver.exception;
+package com.ridebooking.user.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,29 +18,14 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
-    @ExceptionHandler(OwnershipViolationException.class)
-    public ResponseEntity<Map<String, Object>> handleOwnershipViolation(OwnershipViolationException ex) {
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleForbidden(ForbiddenException ex) {
         return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
-    }
-
-    @ExceptionHandler(MissingIdentityException.class)
-    public ResponseEntity<Map<String, Object>> handleMissingIdentity(MissingIdentityException ex) {
-        return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
-    }
-
-    @ExceptionHandler(InvalidCoordinatesException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidCoordinates(InvalidCoordinatesException ex) {
-        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
-
-    @ExceptionHandler(InvalidStateException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidState(InvalidStateException ex) {
-        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
